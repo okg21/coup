@@ -42,7 +42,7 @@ class Game():
         action, block_1, block_2 = (None, None, None), (None, None, None), (None, None, None)
 
         action = current_player.decision(self.game_state, self.history)
-
+        
         for player in [p for p in players if p.name != current_player.name]:
             potential_block_1 = player.block(action, self.game_state, self.history)
             if potential_block_1[1]:

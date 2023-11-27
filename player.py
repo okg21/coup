@@ -3,7 +3,7 @@ from utils import *
 import random
 
 class Player():
-    def __init__(self, name, funcs):
+    def __init__(self, name, funcs, agent=None):
         self.name = name
 
         # player logic
@@ -11,6 +11,7 @@ class Player():
         self.block_fn = funcs['block_fn']
         self.dispose_fn = funcs['dispose_fn']
         self.keep_fn = funcs['keep_fn']
+        self.agent = agent
 
     def decision(self, game_state, history):
         """
@@ -20,7 +21,10 @@ class Player():
         reciever = any player
         type = Unblockable, Duke, Assassin, Captain, Ambassador, Contessa
         """
-        return self.decision_fn(game_state, history, self.name)
+        if self.agent is None:
+            return self.decision_fn(game_state, history, self.name)
+        else:
+            return self.decision_fn(game_state, history, self.name, self.agent)
     
     def block(self, action, game_state, history, action_is_block=False):
         """

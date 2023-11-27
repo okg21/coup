@@ -205,8 +205,10 @@ class QNetwork(nn.Module):
         x = self.fc2(x)
         return x
 
-def rltraining_decision(game_state, history, name):
-    return rl_action
+def rltraining_decision(game_state, history, name, agent):
+    #create state
+    action = agent.get_action((game_state, history), name, 1.0)    
+    return action
 
 def get_rl_decision(model, name):
     agent = QLearningAgent(model.state_dim, model.action_dim, 0, 1, name)
