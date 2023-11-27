@@ -11,6 +11,8 @@ from game import *
 
 ROLE_TO_I = {'Duke' : 0, 'Assassin': 1, 'Captain': 2, 'Ambassador': 3, 'Contessa': 4}
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I):
     """
     Returns a one-hot-encoding of the game_state and history to be used as the input of the model. game_state and history
@@ -49,7 +51,7 @@ def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I):
         if len(player_deaths[player_name]) > 1:
             input[10 + n + 10 * i + 5 + role_to_i[player_deaths[player_name][1]]] = 1
 
-    return input
+    return input.float().to(device)
 
 def output_to_action(output, game_state, name):
     """
@@ -117,7 +119,7 @@ class QLearningAgent:
         self.gamma = gamma
         self.name = name
 
-        self.model = QNetwork(state_dim, action_dim)
+        self.model = QNetwork(state_dim, action_dim).to(device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
         self.replay_buffer = deque(maxlen=10000)
 
@@ -207,7 +209,7 @@ class QNetwork(nn.Module):
 
 def rltraining_decision(game_state, history, name, agent):
     #create state
-    action = agent.get_action((game_state, history), name, 1.0)    
+    action = agent.get_action((game_state, history), name, 0.1)    
     return action
 
 def get_rl_decision(model, name):
