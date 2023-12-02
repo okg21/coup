@@ -5,6 +5,7 @@ import numpy as np
 from collections import deque
 import random
 import copy
+import time
 
 from player import *
 from game import *
@@ -112,7 +113,7 @@ def action_to_index(action, game_state, name):
         return i_0
 
 class QLearningAgent:
-    def __init__(self, state_dim, action_dim, learning_rate, gamma, name):
+    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.learning_rate = learning_rate
@@ -121,7 +122,8 @@ class QLearningAgent:
 
         self.model = QNetwork(state_dim, action_dim).to(device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        self.replay_buffer = deque(maxlen=10000)
+        if is_main:
+            self.replay_buffer = deque(maxlen=10000)
 
         self.list_of_actions = []
         self.did_action_lie = []
@@ -208,20 +210,9 @@ class QNetwork(nn.Module):
         return x
 
 def rltraining_decision(game_state, history, name, agent):
-    #create state
-    action = agent.get_action((game_state, history), name, 0.1)    
+    action = agent.get_action((game_state, history), name, 0)    #TO-DO: Change epsilon
     return action
 
-def get_rl_decision(model, name):
-    agent = QLearningAgent(model.state_dim, model.action_dim, 0, 1, name)
-    agent.model = model
-    agent.model.eval()
-    def rl_decision(game_state, history, name):
-        action = agent.get_action((game_state, history), name, -1)
-        agent.list_of_actions.append(action)
-        agent.did_action_lie.append((action[2] != 'Income' and action[2] != 'Foreign Aid' and action[2] != 'Coup') and did_action_lie(action[2], game_state['player_cards'][name]))
-        return action
-    return rl_decision, agent
 
 class Environment():
     def __init__(self, name, players):
@@ -244,7 +235,7 @@ class Environment():
 
         game_state = self.game.game_state
         history = self.game.history
-        state = (copy.deepcopy(game_state), copy.deepcopy(history))
+        state = (game_state.copy(), history.copy())
 
         self.game.simulate_turn()        
         i = len(self.game.game_state['players']) - 1
@@ -255,7 +246,7 @@ class Environment():
 
         next_game_state = self.game.game_state
         next_history = self.game.history
-        next_state = (copy.deepcopy(next_game_state), copy.deepcopy(next_history))
+        next_state = (next_game_state.copy(), next_history.copy())
 
         reward = self.calculate_reward(state, next_state)
 
@@ -263,7 +254,7 @@ class Environment():
 
         return (next_state, reward, done)
 
-    def calculate_reward(self, state, next_state, COIN_VALUE=1, CARD_VALUE=10, CARD_DIVERSITY_VALUE=5, WIN_VALUE=100):
+    def calculate_reward(self, state, next_state, COIN_VALUE=1, CARD_VALUE=30, CARD_DIVERSITY_VALUE=5, WIN_VALUE=100):
         """
         Calculate the reward from going from state to next_state. 
 
@@ -311,8 +302,3 @@ class Environment():
         initial_state = (initial_game_state, initial_history)
 
         return initial_state
-    
-def calc_reward(name, state, next_state, COIN_VALUE=1, CARD_VALUE=10, CARD_DIVERSITY_VALUE=5, WIN_VALUE=100):
-    """This is really garbage code, but I'm pretty tired. """
-    temp_env = Environment(name)
-    return temp_env.calculate_reward(state, next_state, COIN_VALUE=COIN_VALUE, CARD_VALUE=CARD_VALUE, CARD_DIVERSITY_VALUE=CARD_DIVERSITY_VALUE, WIN_VALUE=WIN_VALUE)
