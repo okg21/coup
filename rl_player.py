@@ -154,11 +154,11 @@ class QLearningAgent:
         next_state_tensors = [state_to_input(game_state, history, name) for (game_state, history), name in zip(next_states, names)]
 
         # Convert lists into PyTorch tensors
-        state_batch = torch.stack(state_tensors)
-        next_state_batch = torch.stack(next_state_tensors)
-        action_batch = torch.tensor([action_to_index(action, game_state, name) for action, (game_state, _), name in zip(actions, states, names)])
-        reward_batch = torch.tensor(rewards)
-        done_batch = torch.tensor(dones)
+        state_batch = torch.stack(state_tensors).to(device)
+        next_state_batch = torch.stack(next_state_tensors).to(device)
+        action_batch = torch.tensor([action_to_index(action, game_state, name) for action, (game_state, _), name in zip(actions, states, names)], device=device)
+        reward_batch = torch.tensor(rewards, device=device)
+        done_batch = torch.tensor(dones, device=device)
         
         # Pass the batches through the Q-network
         predicted_values = self.model.forward(state_batch)
