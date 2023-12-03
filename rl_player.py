@@ -148,44 +148,49 @@ class QLearningAgent:
             action = output_to_action(action_values, game_state, name)
         return action
 
+    def update_batch(self, states, next_states, names, actions, rewards, dones):
+        # Convert lists of states, next_states, etc., into batch tensors
+        state_tensors = [state_to_input(game_state, history, name) for (game_state, history), name in zip(states, names)]
+        next_state_tensors = [state_to_input(game_state, history, name) for (game_state, history), name in zip(next_states, names)]
 
-    def update(self, state, next_state, name, action, reward, done):
-        game_state, history = state[0], state[1]
-        next_game_state, next_history = next_state[0], next_state[1]
+        # Convert lists into PyTorch tensors
+        state_batch = torch.stack(state_tensors)
+        next_state_batch = torch.stack(next_state_tensors)
+        action_batch = torch.tensor([action_to_index(action, game_state, name) for action, (game_state, _), name in zip(actions, states, names)])
+        reward_batch = torch.tensor(rewards)
+        done_batch = torch.tensor(dones)
+        
+        # Pass the batches through the Q-network
+        predicted_values = self.model.forward(state_batch)
+        predicted_next_values = self.model.forward(next_state_batch)
 
-        state_tensor = state_to_input(game_state, history, name)  
-        next_state_tensor = state_to_input(next_game_state, next_history, name)  
+        # Select the Q-values for the chosen actions
+        q_values = predicted_values.gather(1, action_batch.unsqueeze(1)).squeeze(1)
 
-        # Pass the states through the Q-network to get the predicted Q-values
-        predicted_values = self.model.forward(state_tensor)
-        predicted_next_values = self.model.forward(next_state_tensor)
+        # Calculate the target Q-values
+        max_next_q_values = torch.max(predicted_next_values, 1)[0]
+        target_q_values = reward_batch + self.gamma * max_next_q_values * (1 - done_batch.float())
 
-        # Get the Q-value of the chosen action
-        q_value = predicted_values[action_to_index(action, game_state, name)]
+        # Calculate TD error
+        td_errors = target_q_values - q_values
 
-        # Calculate the target Q-value using the Bellman equation
-        if done:
-            target_q_value = reward
-        else:
-            target_q_value = reward + self.gamma * torch.max(predicted_next_values)
-
-        # Calculate the TD error
-        td_error = target_q_value - q_value
-
-        # Update the Q-value using gradient descent
+        # Update the Q-values using gradient descent
         self.optimizer.zero_grad()
-        loss = td_error.pow(2).mean()
+        loss = td_errors.pow(2).mean()
         loss.backward()
         self.optimizer.step()
 
     def replay_experience(self, batch_size, name):
         # Sample a batch of experiences from the replay buffer
+        if len(self.replay_buffer) < batch_size:
+            return
         batch = random.sample(self.replay_buffer, batch_size)
 
-        # Update the Q-network with the sampled experiences
-        for experience in batch:
-            state, action, reward, next_state, done = experience
-            self.update(state, next_state, name, action, reward, done)
+        # Unpack the experiences
+        states, actions, rewards, next_states, dones = zip(*batch)
+
+        # Update the Q-network with the batched experiences
+        self.update_batch(states, next_states, [name] * batch_size, actions, rewards, dones)
 
     def add_experience(self, state, action, reward, next_state, done):
         # Add the experience to the replay buffer
