@@ -113,15 +113,21 @@ def action_to_index(action, game_state, name):
         return i_0
 
 class QLearningAgent:
-    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main):
+    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main, epsilon_decay=0.99, epsilon_min=0.01):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.learning_rate = learning_rate
         self.gamma = gamma
         self.name = name
-
+        
         self.model = QNetwork(state_dim, action_dim).to(device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
+        
+        self.is_main = is_main
+        self.epsilon = 1.0
+        self.epsilon_decay = epsilon_decay
+        self.epsilon_min = epsilon_min
+        
         if is_main:
             self.replay_buffer = deque(maxlen=10000)
 
@@ -140,7 +146,6 @@ class QLearningAgent:
             action = random.choice(possible_actions)
         else:
             action = output_to_action(action_values, game_state, name)
-
         return action
 
 
@@ -209,8 +214,12 @@ class QNetwork(nn.Module):
         x = self.fc2(x)
         return x
 
-def rltraining_decision(game_state, history, name, agent):
-    action = agent.get_action((game_state, history), name, 0)    #TO-DO: Change epsilon
+def rltraining_decision(game_state, history, name, agent): #be careful not calling this from the main agent, since it needs to explore
+    if agent.is_main:
+        action = agent.get_action((game_state, history), name, agent.epsilon)
+    else:
+        action = agent.get_action((game_state, history), name, 0)    
+        
     return action
 
 
@@ -222,7 +231,7 @@ class Environment():
         self.game = Game(self.players)
 
 
-    def step(self, action):
+    def step(self, reward_dict):
         """
         Return (next_state, reward, done).
         
@@ -230,31 +239,28 @@ class Environment():
         reward = self.calculate_reward(state, next_state)
         done = True if agent wins / loses
         """
-        global rl_action
-        rl_action = action
-
         game_state = self.game.game_state
         history = self.game.history
         state = (game_state.copy(), history.copy())
 
-        self.game.simulate_turn()        
+        action = self.game.simulate_turn()        
         i = len(self.game.game_state['players']) - 1
 
         while i > 0 and self.game.game_state['current_player'].name != self.name:
-            self.game.simulate_turn()
+            _ = self.game.simulate_turn()
             i -= 1   
 
         next_game_state = self.game.game_state
         next_history = self.game.history
         next_state = (next_game_state.copy(), next_history.copy())
 
-        reward = self.calculate_reward(state, next_state)
+        reward = self.calculate_reward(state, next_state, reward_dict)
 
         done = all(self.name == p for p in [p.name for p in next_game_state['players']]) or self.name not in [p.name for p in next_game_state['players']]
 
-        return (next_state, reward, done)
+        return (action, next_state, reward, done)
 
-    def calculate_reward(self, state, next_state, COIN_VALUE=1, CARD_VALUE=30, CARD_DIVERSITY_VALUE=5, WIN_VALUE=100):
+    def calculate_reward(self, state, next_state, reward_dict):
         """
         Calculate the reward from going from state to next_state. 
 
@@ -265,6 +271,12 @@ class Environment():
         + 200 if win
         - 200 if lose
         """
+        #parse reward dict
+        COIN_VALUE = reward_dict['COIN_VALUE']
+        CARD_VALUE = reward_dict['CARD_VALUE']
+        WIN_VALUE = reward_dict['WIN_VALUE']
+        CARD_DIVERSITY_VALUE = reward_dict['CARD_DIVERSITY_VALUE']
+        
         game_state, history = state
         next_game_state, next_history = next_state
 

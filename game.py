@@ -64,6 +64,7 @@ class Game():
             self.display_turn(turn)
 
         self.apply_game_logic(turn, players, player_cards, player_deaths)
+        return action
 
     def apply_game_logic(self, turn, players, player_cards, player_deaths):
         action, block_1, block_2 = turn
