@@ -178,6 +178,9 @@ class QLearningAgent:
 
         # Calculate TD error
         td_errors = target_q_values - q_values
+        
+        #clip the td errors
+        td_errors = torch.clamp(td_errors, -1, 1)
 
         # Update the Q-values using gradient descent
         self.optimizer.zero_grad()
