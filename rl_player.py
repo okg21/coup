@@ -139,6 +139,28 @@ class QLearningAgent:
         self.list_of_actions = []
         self.did_action_lie = []
 
+        #for reward normalization
+        self.total_reward = 0
+        self.count = 0
+        self.mean_reward = 0
+        self.var_reward = 0
+
+    def update_reward_stats(self, reward):
+        self.total_reward += reward
+        self.count += 1
+        new_mean = self.total_reward / self.count
+        self.var_reward = ((self.var_reward * (self.count - 1)) + (reward - self.mean_reward) * (reward - new_mean)) / self.count
+        self.mean_reward = new_mean
+
+    def normalize_reward(self, reward):
+        if self.var_reward > 0:
+            normalized_reward = (reward - self.mean_reward) / (self.var_reward ** 0.5)
+        else:
+            normalized_reward = reward - self.mean_reward
+        return normalized_reward
+
+
+
     def get_action(self, state, name, epsilon):
         game_state, history = state[0], state[1]
 
@@ -281,6 +303,10 @@ class Environment():
 
         return (action, next_state, reward, done)
 
+    def get_main_agent(self):
+        return self.players[0].agent
+    
+    
     def calculate_reward(self, state, next_state, reward_dict):
         """
         Calculate the reward from going from state to next_state. 
@@ -320,7 +346,12 @@ class Environment():
         elif self.name not in [p.name for p in next_game_state['players']]:
             reward += -1 * WIN_VALUE
 
-        return reward
+        #reward normalization
+        agent = self.get_main_agent()
+        agent.update_reward_stats(reward)
+        normalized_reward = agent.normalize_reward(reward)
+        
+        return normalized_reward
 
     def reset(self):
         """
