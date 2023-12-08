@@ -113,7 +113,7 @@ def action_to_index(action, game_state, name):
         return i_0
 
 class QLearningAgent:
-    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main, epsilon_decay=0.99, epsilon_min=0.01):
+    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main, target_update_freq=100, epsilon_decay=0.99, epsilon_min=0.01):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.learning_rate = learning_rate
@@ -121,6 +121,8 @@ class QLearningAgent:
         self.name = name
         
         self.model = QNetwork(state_dim, action_dim).to(device)
+        self.target_model = QNetwork(state_dim, action_dim).to(device)
+        self.target_model.load_state_dict(self.model.state_dict())
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
         
         self.is_main = is_main
@@ -128,8 +130,11 @@ class QLearningAgent:
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         
+        self.num_param_updates = 0
+        self.target_update_freq = target_update_freq
+        
         if is_main:
-            self.replay_buffer = deque(maxlen=10000)
+            self.replay_buffer = deque(maxlen=1000000)
 
         self.list_of_actions = []
         self.did_action_lie = []
@@ -162,7 +167,7 @@ class QLearningAgent:
         
         # Pass the batches through the Q-network
         predicted_values = self.model.forward(state_batch)
-        predicted_next_values = self.model.forward(next_state_batch)
+        predicted_next_values = self.target_model.forward(next_state_batch)
 
         # Select the Q-values for the chosen actions
         q_values = predicted_values.gather(1, action_batch.unsqueeze(1)).squeeze(1)
@@ -179,7 +184,13 @@ class QLearningAgent:
         loss = td_errors.pow(2).mean()
         loss.backward()
         self.optimizer.step()
+        
+        self.num_param_updates += 1
 
+        # Periodically update the target network by Q network to target Q network
+        if self.num_param_updates % self.target_update_freq == 0:
+            self.target_model.load_state_dict(self.model.state_dict())
+            
     def replay_experience(self, batch_size, name):
         # Sample a batch of experiences from the replay buffer
         if len(self.replay_buffer) < batch_size:
@@ -211,12 +222,14 @@ class QNetwork(nn.Module):
         self.state_dim = state_dim
         self.action_dim = action_dim
 
-        self.fc1 = nn.Linear(state_dim, 64)
-        self.fc2 = nn.Linear(64, action_dim)
+        self.fc1 = nn.Linear(state_dim, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, action_dim)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = torch.relu(self.fc2(x))
+        x = self.fc3(x)
         return x
 
 def rltraining_decision(game_state, history, name, agent): #be careful not calling this from the main agent, since it needs to explore
