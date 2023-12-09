@@ -135,6 +135,7 @@ class QLearningAgent:
         
         if is_main:
             self.replay_buffer = deque(maxlen=1000000)
+            self.priorities = []
 
         self.list_of_actions = []
         self.did_action_lie = []
@@ -175,7 +176,7 @@ class QLearningAgent:
             action = output_to_action(action_values, game_state, name)
         return action
 
-    def update_batch(self, states, next_states, names, actions, rewards, dones):
+    def update_batch(self, states, next_states, names, actions, rewards, dones, indices=None):
         # Convert lists of states, next_states, etc., into batch tensors
         state_tensors = [state_to_input(game_state, history, name) for (game_state, history), name in zip(states, names)]
         next_state_tensors = [state_to_input(game_state, history, name) for (game_state, history), name in zip(next_states, names)]
@@ -204,6 +205,13 @@ class QLearningAgent:
         #clip the td errors
         td_errors = torch.clamp(td_errors, -1, 1)
 
+
+        # Update priorities in replay buffer
+        if indices is not None:
+            for idx, td_error in zip(indices, td_errors.detach().numpy()):
+                self.priorities[idx] = abs(td_error) + 1e-5  # Add a small value to avoid zero priority
+
+
         # Update the Q-values using gradient descent
         self.optimizer.zero_grad()
         loss = td_errors.pow(2).mean()
@@ -217,20 +225,25 @@ class QLearningAgent:
             self.target_model.load_state_dict(self.model.state_dict())
             
     def replay_experience(self, batch_size, name):
-        # Sample a batch of experiences from the replay buffer
-        if len(self.replay_buffer) < batch_size:
-            return
-        batch = random.sample(self.replay_buffer, batch_size)
+        # Compute probabilities for each experience
+        priorities_sum = sum(self.priorities)
+        probabilities = [priority / priorities_sum for priority in self.priorities]
+
+        # Sample experiences based on their probabilities
+        indices = np.random.choice(range(len(self.replay_buffer)), size=batch_size, p=probabilities)
+        batch = [self.replay_buffer[idx] for idx in indices]
 
         # Unpack the experiences
         states, actions, rewards, next_states, dones = zip(*batch)
 
         # Update the Q-network with the batched experiences
-        self.update_batch(states, next_states, [name] * batch_size, actions, rewards, dones)
+        self.update_batch(states, next_states, [name] * batch_size, actions, rewards, dones, indices)
 
     def add_experience(self, state, action, reward, next_state, done):
         # Add the experience to the replay buffer
+        max_priority = max(self.priorities, default=1)
         self.replay_buffer.append((state, action, reward, next_state, done))
+        self.priorities.append(max_priority)
 
     def save_model(self, path):
         torch.save(self.model.state_dict(), path)
