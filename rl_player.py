@@ -269,7 +269,7 @@ class QNetwork(nn.Module):
         
         self.fc_in = nn.Linear(state_dim, h_dim)
         for i in range(h_layers):
-            self.inter_layers.append(nn.Linear(h_dim, h_dim))
+            self.inter_layers.append(nn.Linear(h_dim, h_dim).to(device))
         self.fc_out = nn.Linear(h_dim, action_dim)
 
     def forward(self, x):
