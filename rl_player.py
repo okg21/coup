@@ -14,7 +14,7 @@ ROLE_TO_I = {'Duke' : 0, 'Assassin': 1, 'Captain': 2, 'Ambassador': 3, 'Contessa
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I):
+def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I, history_length=5):
     """
     Returns a one-hot-encoding of the game_state and history to be used as the input of the model. game_state and history
     are used to get the information required as input.
@@ -25,34 +25,124 @@ def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I):
     The next n entries will be the number of coins each player has (normalized by dividing by 12, the max number of possible coins)
     The next 10n entries will be in 2n groups of 5, representing the dead cards each player has revealed
     """
+    player_names = game_state['players']
+    current_state = encode_game_state(game_state, name, role_to_i)
+     
+    # Define the size of each part of the encoding
+    action_type_size = len(role_to_i)
+    player_size = len(player_names)
+    block_size = 2  # for block_1 and 
+    encoding_size = 10 + 11*player_size
+    coin_size = 11*player_size
+    card_size = 10*player_size    
+    history_feature_size = action_type_size + player_size + block_size * (1 + player_size) + coin_size + card_size
+
+
+    # Determine the length of history to include
+    history_length = history_length  # Example length
+    history_feature_size = history_feature_size  # Adjust this based on your encode_turn implementation
+    history_representation = torch.zeros(history_length * encoding_size)
+
+    # Process the history
+    for i, turn in enumerate(history[-history_length:]):
+        #encode the turn and the state of history
+        turn_encoding = encode_turn(turn[0], turn[1], role_to_i, player_names)
+        state_encoding = encode_game_state(turn[0], name, role_to_i)
+        
+        #append to history representation
+        start_index = i * (history_feature_size + encoding_size)
+        history_representation[start_index:start_index + encoding_size] = state_encoding
+        history_representation[start_index + encoding_size:start_index + encoding_size + history_feature_size] = turn_encoding
+
+    # Combine current game state with history
+    combined_input = torch.cat([current_state, history_representation])
+
+    return combined_input.float().to(device)
+
+def encode_game_state(game_state, name, role_to_i=ROLE_TO_I):
     players, deck, player_cards, player_deaths, player_coins, current_player = game_state['players'], game_state['deck'], game_state['player_cards'], game_state['player_deaths'], game_state['player_coins'], game_state['current_player']
     our_cards = player_cards[name]
     n = len(player_deaths.keys())
     player_names = list(player_deaths.keys())
 
     # initialize input of zeros
-    input = torch.zeros(10 + 11 * n)
+    encoding = torch.zeros(10 + 11 * n)
 
     # fill first 10 entries with information about our_cards
     if len(player_cards[name]) > 0:
-        input[role_to_i[our_cards[0]]] = 1
+        encoding[role_to_i[our_cards[0]]] = 1
     if len(player_cards[name]) > 1:
-        input[role_to_i[our_cards[1]] + 5] = 1
+        encoding[role_to_i[our_cards[1]] + 5] = 1
 
     # fill next n entries with information about player_coins
     for i in range(n):
         player_name = player_names[i]
-        input[10 + i] = player_coins[player_name] / 12
+        encoding[10 + i] = player_coins[player_name] / 12
 
     # fill next 10n entries with information about player_deaths
     for i in range(n):
         player_name = player_names[i]
         if len(player_deaths[player_name]) > 0:
-            input[10 + n + 10 * i + role_to_i[player_deaths[player_name][0]]] = 1
+            encoding[10 + n + 10 * i + role_to_i[player_deaths[player_name][0]]] = 1
         if len(player_deaths[player_name]) > 1:
-            input[10 + n + 10 * i + 5 + role_to_i[player_deaths[player_name][1]]] = 1
+            encoding[10 + n + 10 * i + 5 + role_to_i[player_deaths[player_name][1]]] = 1
+    print("Econding shape: ", encoding.shape)
+    return encoding
 
-    return input.float().to(device)
+def encode_turn(game_state, turn, role_to_i, player_names):
+    """
+    Encodes a single turn and the state of the game during that turn into a fixed-size vector.
+    """
+    # Extract game state details
+    players, deck, player_cards, player_deaths, player_coins, current_player = game_state.values()
+    n = len(players)
+
+    # Define the size of each part of the encoding
+    action_type_size = len(role_to_i)
+    player_size = len(player_names)
+    block_size = 2
+    coin_size = n
+    card_size = 10 * n  # Assuming each player can have up to two cards
+
+    total_encoding_size = action_type_size + player_size + block_size * (1 + player_size) + coin_size + card_size
+    turn_encoding = torch.zeros(total_encoding_size)
+
+    action, block_1, block_2 = turn
+
+    # Encode the action type and who took the action
+    if action[2] in role_to_i:
+        turn_encoding[role_to_i[action[2]]] = 1
+    if action[0] in player_names:
+        player_index = player_names.index(action[0])
+        turn_encoding[action_type_size + player_index] = 1
+
+    # Encode blocks and who did the blocks
+    block_offset = action_type_size + player_size
+    if block_1[1]:
+        turn_encoding[block_offset] = 1  # Indicate block_1 happened
+        blocker_index = player_names.index(block_1[0]) if block_1[0] in player_names else -1
+        if blocker_index >= 0:
+            turn_encoding[block_offset + 1 + blocker_index] = 1  # Indicate who blocked
+
+    if block_2[1]:
+        turn_encoding[block_offset + 1 + player_size] = 1  # Indicate block_2 happened
+        blocker_index = player_names.index(block_2[0]) if block_2[0] in player_names else -1
+        if blocker_index >= 0:
+            turn_encoding[block_offset + 1 + player_size + 1 + blocker_index] = 1  # Indicate who blocked
+
+    # Encode coin information
+    coin_offset = block_offset + 1 + player_size * 2
+    for i, player_name in enumerate(players):
+        turn_encoding[coin_offset + i] = player_coins[player_name] / 12  # Normalizing by dividing by max possible coins
+
+    # Encode card information
+    card_offset = coin_offset + coin_size
+    for i, player_name in enumerate(players):
+        for idx, card in enumerate(player_cards[player_name][:2]):
+            if card in role_to_i:
+                turn_encoding[card_offset + 10 * i + role_to_i[card] + 5 * idx] = 1
+    print("Turn encoding shape: ", turn_encoding.shape)
+    return turn_encoding
 
 def output_to_action(output, game_state, name):
     """
@@ -113,7 +203,8 @@ def action_to_index(action, game_state, name):
         return i_0
 
 class QLearningAgent:
-    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main, target_update_freq=100, epsilon_decay=0.99, epsilon_min=0.01):
+    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main, target_update_freq=1000,
+                 epsilon_decay=0.99, epsilon_min=0.01, replay_buffer_size=1000000):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.learning_rate = learning_rate
@@ -134,7 +225,7 @@ class QLearningAgent:
         self.target_update_freq = target_update_freq
         
         if is_main:
-            self.replay_buffer = deque(maxlen=1000000)
+            self.replay_buffer = deque(maxlen=replay_buffer_size)
 
         self.list_of_actions = []
         self.did_action_lie = []
