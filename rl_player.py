@@ -210,7 +210,7 @@ class QLearningAgent:
 
         # Update priorities in replay buffer
         if indices is not None:
-            for idx, td_error in zip(indices, td_errors.detach().numpy()):
+            for idx, td_error in zip(indices, td_errors.cpu().detach().numpy()):
                 self.priorities[idx] = abs(td_error) + 1e-5  # Add a small value to avoid zero priority
 
 
