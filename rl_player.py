@@ -14,45 +14,99 @@ ROLE_TO_I = {'Duke' : 0, 'Assassin': 1, 'Captain': 2, 'Ambassador': 3, 'Contessa
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I):
+def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I, history_length=5):
     """
-    Returns a one-hot-encoding of the game_state and history to be used as the input of the model. game_state and history
-    are used to get the information required as input.
-
-    input will be a Tensor of shape (10 + 11n)
-
-    The first 10 entries will be in 2 groups of 5, representing the cards the player has
-    The next n entries will be the number of coins each player has (normalized by dividing by 12, the max number of possible coins)
-    The next 10n entries will be in 2n groups of 5, representing the dead cards each player has revealed
+    Returns a one-hot-encoding of the game_state and history to be used as the input of the model.
     """
     players, deck, player_cards, player_deaths, player_coins, current_player = game_state['players'], game_state['deck'], game_state['player_cards'], game_state['player_deaths'], game_state['player_coins'], game_state['current_player']
     our_cards = player_cards[name]
+    player_names = [p.name for p in players]
+
     n = len(player_deaths.keys())
-    player_names = list(player_deaths.keys())
+    action_dim = 5
+    block_size = 2
+    turn_encoding_size = action_dim + n * 3 + block_size * 2
 
-    # initialize input of zeros
-    input = torch.zeros(10 + 11 * n)
 
-    # fill first 10 entries with information about our_cards
-    if len(player_cards[name]) > 0:
-        input[role_to_i[our_cards[0]]] = 1
-    if len(player_cards[name]) > 1:
-        input[role_to_i[our_cards[1]] + 5] = 1
+    # Initialize input of zeros for current state
+    current_state_input = torch.zeros(10 + 11 * n)
 
-    # fill next n entries with information about player_coins
-    for i in range(n):
-        player_name = player_names[i]
-        input[10 + i] = player_coins[player_name] / 12
+    # Fill first 10 entries with information about our_cards
+    for i, card in enumerate(our_cards):
+        if card in role_to_i:
+            current_state_input[role_to_i[card] + 5 * i] = 1
 
-    # fill next 10n entries with information about player_deaths
-    for i in range(n):
-        player_name = player_names[i]
-        if len(player_deaths[player_name]) > 0:
-            input[10 + n + 10 * i + role_to_i[player_deaths[player_name][0]]] = 1
-        if len(player_deaths[player_name]) > 1:
-            input[10 + n + 10 * i + 5 + role_to_i[player_deaths[player_name][1]]] = 1
+    # Fill next n entries with information about player_coins
+    for i, player_name in enumerate(player_names):
+        current_state_input[10 + i] = player_coins[player_name] / 12
 
-    return input.float().to(device)
+    # Fill next 10n entries with information about player_deaths
+    for i, player_name in enumerate(player_names):
+        for j, card in enumerate(player_deaths[player_name]):
+            if card in role_to_i:
+                current_state_input[10 + n + 10 * i + role_to_i[card] + 5 * j] = 1
+
+    # Initialize history encoding with zeros
+    history_encoding = torch.zeros(history_length * turn_encoding_size)
+
+    # Process the history
+    for i, (past_game_state, turn) in enumerate(history[-history_length:]):
+        turn_encoding = encode_turn(turn, role_to_i, player_names, player_deaths.keys()) if turn is not None else torch.zeros(turn_encoding_size)
+        start_index = i * turn_encoding_size
+        history_encoding[start_index:start_index + turn_encoding_size] = turn_encoding
+
+    # Combine current game state with history
+    combined_input = torch.cat([current_state_input, history_encoding])
+    return combined_input.float().to(device)
+
+
+
+def encode_turn(turn, role_to_i, player_names, player_deaths):
+    """
+    Encodes a single turn into a fixed-size vector.
+
+    Args:
+    - turn: A tuple containing (action, block_1, block_2).
+    - role_to_i: A dictionary mapping roles to indices.
+    - player_names: A list of player names to create player-specific encodings.
+
+    Returns:
+    - A torch tensor representing the encoded turn.
+    """
+
+    action_type_size = len(role_to_i)
+    player_size = len(player_deaths)
+    block_size = 2  # for block_1 and block_2
+
+    # Define the total size of the encoding vector
+    total_encoding_size = action_type_size + player_size * 3 + block_size * 2
+    turn_encoding = torch.zeros(total_encoding_size)
+
+    action, block_1, block_2 = turn
+
+    # Encode the action type and who took the action
+    if action[2] in role_to_i:
+        turn_encoding[role_to_i[action[2]]] = 1
+    if action[0] in player_names:
+        player_index = player_names.index(action[0])
+        turn_encoding[action_type_size + player_index] = 1
+
+    # Encode blocks and who did the blocks
+    block_offset = action_type_size + player_size
+    if block_1[1]:
+        turn_encoding[block_offset] = 1  # Indicate block_1 happened
+        if block_1[0] in player_names:
+            blocker_index = player_names.index(block_1[0])
+            turn_encoding[block_offset + player_size + blocker_index] = 1  # Indicate who blocked
+
+    if block_2[1]:
+        turn_encoding[block_offset + 1] = 1  # Indicate block_2 happened
+        if block_2[0] in player_names:
+            blocker_index = player_names.index(block_2[0])
+            turn_encoding[block_offset + player_size * 2 + blocker_index] = 1  # Indicate who blocked
+
+    return turn_encoding
+
 
 def output_to_action(output, game_state, name):
     """
