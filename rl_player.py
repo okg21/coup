@@ -75,7 +75,7 @@ def output_to_action(output, game_state, name):
     possible_actions = generate_all_action(game_state['current_player'], game_state['players'], game_state['player_coins'], game_state['player_cards'])
     n = len(game_state['player_deaths'].keys())
 
-    list_of_players = list([p_name for p_name in game_state['player_deaths'].keys() if p_name != name])
+    list_of_players = list(p_name for p_name in game_state['player_deaths'].keys() if p_name != name)
     i_to_player = {i : list_of_players[i] for i in range(len(list_of_players))}
 
     i_to_type = {0: 'Income', 1: 'Foreign Aid', 2: 'Tax', 3: 'Exchange'}
@@ -98,19 +98,34 @@ def output_to_action(output, game_state, name):
         action = (name, reciever, type)
     return action
 
-def action_to_index(action, game_state, name):
-    n = len(game_state['player_deaths'].keys())
-    type_to_i = {'Income': 0, 'Foreign Aid': 1, 'Tax': 2, 'Exchange': 3, 'Steal': 4, 'Assassinate': 3 + n, 'Coup': 2 + 2 * n}
-    
-    list_of_players = list([p_name for p_name in game_state['player_deaths'].keys() if p_name != name])
-    player_to_i = {list_of_players[i] : i for i in range(len(list_of_players))}
+def get_action_type_index(action, num_players):
+  action_type = action[2]
+  
+  type_to_index = {
+    'Income': 0, 
+    'Foreign Aid': 1, 
+    'Tax': 2,
+    'Exchange': 3,
+    'Steal': 4,
+    'Assassinate': 3 + num_players,
+    'Coup': 2 + 2 * num_players
+  }
 
-    i_0 = type_to_i[action[2]]
-    if i_0 > 3:
-        i = i_0 + player_to_i[action[1]]
-        return i
-    else:
-        return i_0
+  return type_to_index[action_type]
+
+def action_to_index(action, game_state, name):
+  num_players = len(game_state['player_deaths'])
+  
+  index = get_action_type_index(action, num_players)
+
+  if index > 3:
+    players = [p for p in game_state['player_deaths'] if p != name]
+    player_to_index = {p: i for i, p in enumerate(players)}
+    target_player = action[1]
+    index += player_to_index[target_player]
+
+  return index
+
 
 class QLearningAgent:
     def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main,
@@ -161,8 +176,6 @@ class QLearningAgent:
         else:
             normalized_reward = reward - self.mean_reward
         return normalized_reward
-
-
 
     def get_action(self, state, name, epsilon):
         game_state, history = state[0], state[1]
@@ -254,11 +267,9 @@ class QLearningAgent:
     def save_model(self, path):
         torch.save(self.model.state_dict(), path)
 
-def load_model(n, path):
-    model = QNetwork(10 + 11 * n, 1 + 3 * n)
-    model.load_state_dict(torch.load(path))
-    model.eval()
-    return model
+    def load_model(self, path):
+        self.model.load_state_dict(torch.load(path))
+        self.target_model.load_state_dict(torch.load(path))
 
 class QNetwork(nn.Module):
     def __init__(self, state_dim, action_dim, h_dim, h_layers=1):
@@ -276,8 +287,8 @@ class QNetwork(nn.Module):
         x = torch.relu(self.fc_in(x))
         for layer in self.inter_layers:
             x = torch.relu(layer(x))
-        x = self.fc_out(x)
-        return x
+        
+        return self.fc_out(x)
 
 def rltraining_decision(game_state, history, name, agent): #be careful not calling this from the main agent, since it needs to explore
     if agent.is_main:
@@ -354,7 +365,7 @@ class Environment():
         change_in_coins = next_game_state['player_coins'][self.name] - game_state['player_coins'][self.name]
         reward += COIN_VALUE * change_in_coins
 
-        change_in_opponents_cards = sum([len(next_game_state['player_cards'][p]) for p in next_game_state['player_cards'].keys() if p != self.name]) - sum([len(game_state['player_cards'][p]) for p in game_state['player_cards'].keys() if p != self.name])
+        change_in_opponents_cards = sum(len(next_game_state['player_cards'][p]) for p in next_game_state['player_cards'].keys() if p != self.name) - susum(len(game_state['player_cards'][p]) for p in game_state['player_cards'].keys() if p != self.name)
         change_in_owned_cards = len(next_game_state['player_cards'][self.name]) - len(game_state['player_cards'][self.name])
 
         reward += -1 * CARD_VALUE * change_in_opponents_cards
@@ -371,9 +382,9 @@ class Environment():
         #reward normalization
         agent = self.get_main_agent()
         agent.update_reward_stats(reward)
-        normalized_reward = agent.normalize_reward(reward)
         
-        return normalized_reward
+        
+        return agent.normalize_reward(reward)
 
     def reset(self):
         """
@@ -385,6 +396,6 @@ class Environment():
 
         initial_game_state = self.game.game_state
         initial_history = self.game.history
-        initial_state = (initial_game_state, initial_history)
+        
 
-        return initial_state
+        return (initial_game_state, initial_history)

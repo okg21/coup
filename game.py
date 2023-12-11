@@ -69,12 +69,12 @@ class Game():
     def apply_game_logic(self, turn, players, player_cards, player_deaths):
         action, block_1, block_2 = turn
 
-        type = action[2]
+        action_type = action[2]
 
         if block_1[1]:
             if block_2[1]:
                 blocker_cards = player_cards[block_1[0]]
-                if did_block_1_lie(type, blocker_cards):
+                if did_block_1_lie(action_type, blocker_cards):
                     card_idx = [p for p in players if p.name == block_1[0]][0].dispose(self.game_state, self.history)
                     lose_block(block_1[0], player_cards, card_idx, player_deaths)
                     self.take_action(action)
@@ -84,7 +84,7 @@ class Game():
             else:
                 if block_1[2]:
                     sender_cards = player_cards[action[0]]
-                    if did_action_lie(type, sender_cards):
+                    if did_action_lie(action_type, sender_cards):
                         card_idx = [p for p in players if p.name == action[0]][0].dispose(self.game_state, self.history)
                         lose_block(action[0], player_cards, card_idx, player_deaths)
                     else:
@@ -98,23 +98,23 @@ class Game():
 
     def take_action(self, action):
         players, deck, player_cards, player_deaths, player_coins, current_player = self.unpack_gamestate()
-        player1_name, player2_name, type = action
+        player1_name, player2_name, action_type = action
 
-        if type == 'Income':
+        if action_type == 'Income':
             income(player1_name, player_coins)
-        elif type == 'Foreign Aid':
+        elif action_type == 'Foreign Aid':
             foreign_aid(player1_name, player_coins)
-        elif type == 'Tax':
+        elif action_type == 'Tax':
             tax(player1_name, player_coins)
-        elif type == 'Steal':
+        elif action_type == 'Steal':
             steal(player1_name, player2_name, player_coins)
-        elif type == 'Coup':
+        elif action_type == 'Coup':
             card_idx = [p for p in players if p.name == player2_name][0].dispose(self.game_state, self.history)
             coup(player1_name, player2_name, player_coins, player_cards, card_idx, player_deaths)
-        elif type == 'Assassinate' and len(player_cards[player2_name]) > 0:
+        elif action_type == 'Assassinate' and len(player_cards[player2_name]) > 0:
             card_idx = [p for p in players if p.name == player2_name][0].dispose(self.game_state, self.history)
             assassinate(player1_name, player2_name, player_coins, player_cards, card_idx, player_deaths)
-        elif type == 'Exchange':
+        elif action_type == 'Exchange':
             cards = player_cards[current_player.name].copy() + [deck.pop(), deck.pop()]
             cards_idxs = current_player.keep(cards, self.game_state, self.history)
             assert len(cards_idxs) == len(player_cards[player1_name])
