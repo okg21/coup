@@ -365,7 +365,7 @@ class Environment():
         change_in_coins = next_game_state['player_coins'][self.name] - game_state['player_coins'][self.name]
         reward += COIN_VALUE * change_in_coins
 
-        change_in_opponents_cards = sum(len(next_game_state['player_cards'][p]) for p in next_game_state['player_cards'].keys() if p != self.name) - susum(len(game_state['player_cards'][p]) for p in game_state['player_cards'].keys() if p != self.name)
+        change_in_opponents_cards = sum(len(next_game_state['player_cards'][p]) for p in next_game_state['player_cards'].keys() if p != self.name) - sum(len(game_state['player_cards'][p]) for p in game_state['player_cards'].keys() if p != self.name)
         change_in_owned_cards = len(next_game_state['player_cards'][self.name]) - len(game_state['player_cards'][self.name])
 
         reward += -1 * CARD_VALUE * change_in_opponents_cards
