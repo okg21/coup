@@ -24,7 +24,7 @@ class Player():
         if self.agent is None:
             return self.decision_fn(game_state, history, self.name)
         else:
-            return self.decision_fn(game_state, history, self.name, self.agent)
+            return self.decision_fn(game_state, history, self.name, self.agent, self.agent.history_length)
     
     def block(self, action, game_state, history, action_is_block=False):
         """

@@ -183,7 +183,7 @@ def action_to_index(action, game_state, name):
 
 class QLearningAgent:
     def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main,
-                 target_update_freq=100, epsilon_decay=0.99, epsilon_min=0.01
+                 history_length=5, target_update_freq=100, epsilon_decay=0.99, epsilon_min=0.01
                  ,h_dim=128, h_layers=2, tau=0.01, buffer_size=1000000):
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -197,6 +197,7 @@ class QLearningAgent:
         self.epsilon_min = epsilon_min
         self.num_param_updates = 0
         self.target_update_freq = target_update_freq
+        self.history_length = history_length
         
         #creating the model
         self.model = QNetwork(state_dim, action_dim, h_dim, h_layers).to(device)
@@ -231,10 +232,10 @@ class QLearningAgent:
             normalized_reward = reward - self.mean_reward
         return normalized_reward
 
-    def get_action(self, state, name, epsilon):
+    def get_action(self, state, name, epsilon, history_length):
         game_state, history = state[0], state[1]
 
-        state = state_to_input(game_state, history, name)
+        state = state_to_input(game_state, history, name, history_length=history_length)
 
         action_values = self.model.forward(state)
 
@@ -247,8 +248,8 @@ class QLearningAgent:
 
     def update_batch(self, states, next_states, names, actions, rewards, dones, indices=None):
         # Convert lists of states, next_states, etc., into batch tensors
-        state_tensors = [state_to_input(game_state, history, name) for (game_state, history), name in zip(states, names)]
-        next_state_tensors = [state_to_input(game_state, history, name) for (game_state, history), name in zip(next_states, names)]
+        state_tensors = [state_to_input(game_state, history, name, history_length=self.history_length) for (game_state, history), name in zip(states, names)]
+        next_state_tensors = [state_to_input(game_state, history, name, history_length=self.history_length) for (game_state, history), name in zip(next_states, names)]
 
         # Convert lists into PyTorch tensors
         state_batch = torch.stack(state_tensors).to(device)
@@ -344,11 +345,11 @@ class QNetwork(nn.Module):
         
         return self.fc_out(x)
 
-def rltraining_decision(game_state, history, name, agent): #be careful not calling this from the main agent, since it needs to explore
+def rltraining_decision(game_state, history, name, agent, history_length): #be careful not calling this from the main agent, since it needs to explore
     if agent.is_main:
-        action = agent.get_action((game_state, history), name, agent.epsilon)
+        action = agent.get_action((game_state, history), name, agent.epsilon, history_length)
     else:
-        action = agent.get_action((game_state, history), name, 0)    
+        action = agent.get_action((game_state, history), name, 0, history_length)    
         
     return action
 
