@@ -14,7 +14,7 @@ ROLE_TO_I = {'Duke' : 0, 'Assassin': 1, 'Captain': 2, 'Ambassador': 3, 'Contessa
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I, history_length=5):
+def state_to_input(game_state, history, name, action=None, role_to_i=ROLE_TO_I, history_length=5):
     """
     Returns a one-hot-encoding of the game_state and history to be used as the input of the model.
     """
@@ -48,6 +48,8 @@ def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I, history_lengt
 
     # Initialize history encoding with zeros
     history_encoding = torch.zeros(history_length * turn_encoding_size)
+    #pad the history with zeros for the first few turns
+    history = [(None, None)] * (history_length - len(history)) + history
 
     # Process the history
     for i, (past_game_state, turn) in enumerate(history[-history_length:]):
@@ -55,10 +57,52 @@ def state_to_input(game_state, history, name, role_to_i=ROLE_TO_I, history_lengt
         start_index = i * turn_encoding_size
         history_encoding[start_index:start_index + turn_encoding_size] = turn_encoding
 
-    # Combine current game state with history
-    combined_input = torch.cat([current_state_input, history_encoding])
+    if action is not None:
+        # Encode the action information
+        action_encoding = encode_action(action, role_to_i, player_names)
+        combined_input = torch.cat([current_state_input, history_encoding, action_encoding])
+    else:
+        combined_input = torch.cat([current_state_input, history_encoding])
+
     return combined_input.float().to(device)
 
+def encode_action(action, role_to_i, player_names):
+        """
+        Encodes an action into a fixed-size vector.
+
+        Args:
+        - action: A tuple containing (player_name, target_player, action_type).
+        - role_to_i: A dictionary mapping roles to indices.
+        - player_names: A list of player names to create player-specific encodings.
+
+        Returns:
+        - A torch tensor representing the encoded action.
+        """
+
+        action_type_size = len(role_to_i)
+        player_size = len(player_names)
+
+        print("Action: ", action[2])
+        # Define the total size of the encoding vector
+        total_encoding_size = action_type_size + player_size * 3 + 1
+        action_encoding = torch.zeros(total_encoding_size)
+
+        # Encode the action type and who took the action
+        if action[2] in role_to_i:
+            action_encoding[role_to_i[action[2]]] = 1
+        if action[0] in player_names:
+            player_index = player_names.index(action[0])
+            action_encoding[action_type_size + player_index] = 1
+
+        # Encode who the action was directed towards
+        if action[1] in player_names:
+            target_index = player_names.index(action[1])
+            action_encoding[action_type_size + player_size + target_index] = 1
+
+        if ROLE_BLOCKABLE[action[2]]:
+            action_encoding[-1] = 1
+
+        return action_encoding
 
 
 def encode_turn(turn, role_to_i, player_names, player_deaths):
@@ -162,7 +206,9 @@ def get_action_type_index(action, num_players):
     'Exchange': 3,
     'Steal': 4,
     'Assassinate': 3 + num_players,
-    'Coup': 2 + 2 * num_players
+    'Coup': 2 + 2 * num_players,
+    'Lie_Block': 3 + 3 * num_players,
+    'Role_Block': 4 + 3 * num_players
   }
 
   return type_to_index[action_type]
@@ -182,7 +228,7 @@ def action_to_index(action, game_state, name):
 
 
 class QLearningAgent:
-    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main,
+    def __init__(self, state_dim, action_dim, learning_rate, gamma, name, is_main, block_net_dim,
                  history_length=5, target_update_freq=100, epsilon_decay=0.99, epsilon_min=0.01
                  ,h_dim=128, h_layers=2, tau=0.01, buffer_size=1000000):
         self.state_dim = state_dim
@@ -204,9 +250,15 @@ class QLearningAgent:
         self.target_model = QNetwork(state_dim, action_dim, h_dim, h_layers).to(device)
         self.target_model.load_state_dict(self.model.state_dict())
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        
+
+        self.block_model = BlockNetwork(block_net_dim, h_dim, 3).to(device)
+        self.block_optimizer = optim.Adam(self.block_model.parameters(), lr=learning_rate)
+        self.block_criterion = nn.BCELoss() 
+
+
         if is_main:
             self.replay_buffer = deque(maxlen=buffer_size)
+            self.block_replay_buffer = deque(maxlen=buffer_size)
             self.priorities = []
 
         self.list_of_actions = []
@@ -293,7 +345,35 @@ class QLearningAgent:
         # Periodically update the target network by Q network to target Q network
         if self.num_param_updates % self.target_update_freq == 0:
             self.soft_update()
-            
+
+    def decide_block(self, game_state, history, action):
+        # Prepare the state input for the model, including the action and its context
+        state_input = state_to_input(game_state, history, self.name, action=action, history_length=self.history_length)
+
+        print("Player: ", self.name, "Considering blocking")
+        # Get the blocking decision from the model
+        print("Block model input shpaes: ", state_input.shape)
+        block_output = self.block_model(state_input)
+        # Interpret the output to decide whether to block
+        decision = torch.argmax(block_output).item()
+
+        if decision == 0:
+            return (self.name, False, None)
+        elif decision == 1:
+            if LIE_BLOCKABLE[action[2]]:
+                return (self.name, True, 'Lie_Block')
+            elif ROLE_BLOCKABLE[action[2]]:
+                return (self.name, True, 'Role_Block')
+            else:
+                return (self.name, False, None)
+        else:
+            if ROLE_BLOCKABLE[action[2]]:
+                return (self.name, True, 'Role_Block')
+            elif LIE_BLOCKABLE[action[2]]:
+                return (self.name, True, 'Lie_Block')
+            else:
+                return (self.name, False, None)
+                    
     def soft_update(self):
         for target_param, main_param in zip(self.target_model.parameters(), self.model.parameters()):
             target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
@@ -344,6 +424,29 @@ class QNetwork(nn.Module):
             x = torch.relu(layer(x))
         
         return self.fc_out(x)
+    
+class BlockNetwork(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(BlockNetwork, self).__init__()
+        
+        # Input layer
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        
+        # Hidden layers
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
+
+        # Output layer
+        self.fc4 = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, x):
+        # Forward pass through the network
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = torch.relu(self.fc3(x))
+        x = self.fc4(x)
+        return x
+
 
 def rltraining_decision(game_state, history, name, agent, history_length): #be careful not calling this from the main agent, since it needs to explore
     if agent.is_main:
@@ -355,11 +458,10 @@ def rltraining_decision(game_state, history, name, agent, history_length): #be c
 
 
 class Environment():
-    def __init__(self, name, players):
+    def __init__(self, name, players, debug=False):
         self.name = name
         self.players = players
-        
-        self.game = Game(self.players)
+        self.game = Game(self.players, debug=debug)
 
 
     def step(self, reward_dict):

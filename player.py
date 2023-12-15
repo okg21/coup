@@ -1,7 +1,7 @@
 from utils import *
 
 import random
-
+from rl_player import get_action_type_index
 class Player():
     def __init__(self, name, funcs, agent=None):
         self.name = name
@@ -48,6 +48,22 @@ class Player():
         """
         return self.keep_fn(cards, game_state, history, self.name)
     
+
+def rl_block(action, game_state, history, name, action_is_block=False):
+    print("Action to index: ", get_action_type_index(action, len(game_state['player_deaths'])))
+
+    if action_is_block:
+        if action[2]:
+            action = (action[0], name, 'Lie_Block')
+        else:
+            action = (action[0], name, 'Role_Block')
+    agent = None
+    for p in game_state['players']:
+        if p.name == name:
+            agent = p.agent
+            break
+    
+    return agent.decide_block(game_state, history, action)
 
 # -- Random Ronald -- #
 def random_decision(game_state, history, name):
