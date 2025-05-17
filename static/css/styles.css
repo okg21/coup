@@ -1,0 +1,620 @@
+/* Global Styles */
+:root {
+    /* Color System from style guide v1.1 */
+    --bg: #1b1c20;
+    --panel: #252831;
+    --panel-edge: #3d3f47;
+    --gold: #c9a33f;
+    --scarlet: #923d2b;
+    --text: #f2e9d0;
+    --text-muted: #bfb7a3;
+    --halo: rgba(210,183,117,.45);
+
+    /* Fonts */
+    --title-font: "Cinzel", Georgia, serif;
+    --heading-font: "Playfair Display", serif;
+    --body-font: "Inter", "Helvetica Neue", sans-serif;
+    --mono-font: "JetBrains Mono", monospace;
+    
+    /* Legacy color variables kept for compatibility */
+    --primary-color: var(--panel);
+    --secondary-color: var(--scarlet);
+    --accent-color: var(--gold);
+    --background-color: var(--bg);
+    --card-color: var(--panel);
+    --text-color: var(--text);
+    --success-color: #4caf50;
+    --failure-color: #f44336;
+    --info-color: #03a9f4;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg) url('/images/board_texture.png') repeat;
+    background-size: 256px 256px;
+    color: var(--text);
+    font-family: var(--body-font);
+    line-height: 1.5;
+}
+
+.game-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* Panel Component */
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 8px;
+    box-shadow: inset 0 0 8px rgba(0,0,0,.4);
+    padding: 1.25rem;
+}
+
+/* Logo Styles */
+.logo-container {
+    display: flex;
+    align-items: center;
+}
+
+.game-logo {
+    height: 60px;
+    width: auto;
+    max-width: 300px;
+    object-fit: contain;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modal-logo {
+    height: 40px;
+    width: auto;
+    margin-right: 15px;
+    object-fit: contain;
+}
+
+/* Header Styles */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+h1, h2 {
+    font-family: var(--title-font);
+    color: var(--gold);
+    font-variant: small-caps;
+    font-size: clamp(36px, 4vw, 48px);
+    font-weight: 700;
+}
+
+h3, h4 {
+    font-family: var(--heading-font);
+    color: var(--gold);
+    font-weight: 600;
+    font-size: 24px;
+}
+
+/* Button component */
+.btn {
+    font: 600 15px/1 var(--body-font);
+    color: var(--text);
+    border: 1px solid var(--panel-edge);
+    background: linear-gradient(#393b44, #2e3037);
+    border-radius: 6px;
+    padding: .5rem 1.25rem;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: background .15s;
+}
+
+.btn:hover {
+    background: linear-gradient(#494b53, #393b44);
+}
+
+.btn:disabled {
+    background: #666;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.btn:focus {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.btn--gold, .btn--primary {
+    background: var(--gold);
+    color: #1b1c20;
+    border-color: #a58631;
+}
+
+.btn--gold:hover, .btn--primary:hover {
+    background: #d2b35a;
+}
+
+/* Action Guide Styles */
+.action-guide {
+    margin-bottom: 24px;
+    display: none;
+}
+
+.action-guide.show {
+    display: block;
+}
+
+.action-guide h3 {
+    margin-bottom: 15px;
+}
+
+.action-guide h4 {
+    margin-top: 15px;
+    margin-bottom: 10px;
+}
+
+.action-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 15px;
+}
+
+.action-item {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.action-item strong {
+    color: var(--gold);
+}
+
+.character-list {
+    margin-top: 15px;
+}
+
+.card-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.card.mini {
+    width: 40px;
+    height: 60px;
+    margin-right: 15px;
+    font-size: 0.8em;
+    background-size: cover;
+    background-position: center;
+    color: transparent;
+    border-radius: 6px;
+    box-shadow: 0 0 0 1px #372c1f, 0 2px 4px rgba(0,0,0,.5);
+}
+
+.card.mini.Duke {
+    background-image: url('/images/duke.png');
+}
+
+.card.mini.Assassin {
+    background-image: url('/images/assasin.png');
+}
+
+.card.mini.Captain {
+    background-image: url('/images/captain.png');
+}
+
+.card.mini.Ambassador {
+    background-image: url('/images/ambassador.png');
+}
+
+.card.mini.Contessa {
+    background-image: url('/images/contessa.png');
+}
+
+/* Game Board Styles */
+.game-board {
+    margin-bottom: 24px;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 16px;
+}
+
+.deck-info, .current-player {
+    flex: 1;
+}
+
+.current-player {
+    text-align: center;
+}
+
+#current-player-name {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--gold);
+    margin-top: 5px;
+}
+
+.players-area {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+/* Player Component */
+.player-card {
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.player-card.active {
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 6px var(--halo);
+}
+
+.player-card h3 {
+    margin-bottom: 10px;
+    font-size: 1.2em;
+    color: var(--gold);
+}
+
+.player-card:nth-child(2) h3 {
+    color: var(--scarlet);
+}
+
+.player-coins {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.coin-icon {
+    width: 32px;
+    height: 32px;
+    background-color: var(--gold);
+    border-radius: 50%;
+    margin-right: 10px;
+    filter: hue-rotate(-10deg) brightness(1.1) saturate(.9);
+}
+
+.player-strategy {
+    font-style: italic;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.player-cards {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+/* Card Component */
+.card {
+    width: 90px;
+    height: 135px;
+    background: var(--panel);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,.6), 0 0 0 1px #372c1f;
+}
+
+.card.Duke {
+    background-image: url('/images/duke.png');
+    background-size: cover;
+    background-position: center;
+}
+
+.card.Assassin {
+    background-image: url('/images/assasin.png');
+    background-size: cover;
+    background-position: center;
+}
+
+.card.Captain {
+    background-image: url('/images/captain.png');
+    background-size: cover;
+    background-position: center;
+}
+
+.card.Ambassador {
+    background-image: url('/images/ambassador.png');
+    background-size: cover;
+    background-position: center;
+}
+
+.card.Contessa {
+    background-image: url('/images/contessa.png');
+    background-size: cover;
+    background-position: center;
+}
+
+.card span {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 5px 0;
+    font: 600 12px/1 var(--body-font);
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--text);
+    text-align: center;
+}
+
+.card.dead {
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+
+/* Dead Card Display */
+.dead-cards {
+    margin-top: 8px;
+}
+
+.dead-card {
+    display: inline-block;
+    margin-right: 5px;
+    padding: 2px 5px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+    font-size: 0.8em;
+}
+
+/* Game Log Styles */
+.game-log-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.game-log {
+    font: 14px/1.4 var(--mono-font);
+    background: #202229e6;
+    border-radius: 6px;
+    padding: .75rem;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.game-log-entry {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+}
+
+.game-log-entry:last-child {
+    border-bottom: none;
+    color: var(--gold);
+}
+
+.turn-number {
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    font-size: 0.8em;
+    color: var(--gold);
+    font-weight: bold;
+    opacity: 0.8;
+}
+
+.action-main {
+    font-size: 1.1em;
+    margin-bottom: 8px;
+}
+
+.block-action {
+    padding-left: 20px;
+    margin-top: 5px;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+.block-action:before {
+    content: "→";
+    position: relative;
+    left: -10px;
+    color: var(--gold);
+    font-size: 0.8em;
+}
+
+.challenge-outcome {
+    padding-left: 20px;
+    margin-top: 5px;
+    font-weight: bold;
+}
+
+.challenge-outcome:before {
+    content: "⚡";
+    position: relative;
+    left: -10px;
+    color: var(--gold);
+}
+
+.challenge-outcome.success {
+    color: var(--success-color);
+}
+
+.challenge-outcome.failure {
+    color: var(--failure-color);
+}
+
+.state-changes {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.state-change {
+    padding-left: 20px;
+    font-size: 0.9em;
+    color: var(--info-color);
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.modal-logo {
+    height: 40px;
+    width: auto;
+    margin-right: 15px;
+    object-fit: contain;
+}
+
+.modal-close {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    padding: 5px 10px;
+    color: var(--text);
+    cursor: pointer;
+    margin: 0;
+    transition: color 0.2s;
+}
+
+.modal-close:hover {
+    color: var(--gold);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.modal h2 {
+    margin-bottom: 20px;
+}
+
+.player-setup {
+    margin-bottom: 20px;
+}
+
+.player-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+.player-form label {
+    width: 80px;
+    font-weight: 500;
+}
+
+.player-form input, .player-form select {
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-edge);
+    background-color: rgba(0, 0, 0, 0.2);
+    color: var(--text);
+}
+
+.player-form input:focus, .player-form select:focus {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.player-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.modal-footer {
+    margin-top: 20px;
+    text-align: right;
+}
+
+#winner-name {
+    color: var(--gold);
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Accessibility Focus Styles */
+button:focus, a:focus, input:focus, select:focus {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .game-info {
+        flex-direction: column;
+    }
+    
+    .action-list {
+        grid-template-columns: 1fr;
+    }
+    
+    header {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .controls {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .controls button {
+        margin: 5px;
+    }
+    
+    .player-form {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+} 

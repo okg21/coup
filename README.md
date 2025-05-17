@@ -32,6 +32,12 @@ For a description of the rules, click [here](https://www.ultraboardgames.com/cou
 2. Put all players into the players list and create the game object.
 3. Run python3 game.py
 
+**Running the UI Overlay:**
+1. Install the required dependencies: `pip install -r requirements.txt`
+2. Start the Flask server: `python server.py`
+3. Open your browser and navigate to `http://localhost:5000`
+4. Use the UI to set up players and watch the game in a nice viewing experience
+
 
 **Model Files Format:**
 "{number of players}-{number of episodes trained on}-{types of opponents}"
@@ -40,5 +46,5 @@ For a description of the rules, click [here](https://www.ultraboardgames.com/cou
 **Missing Features / Bugs:**
 * Blocking the 'Steal' action is ambiguous, and doesn't force the player to specifically claim 'Captain' or 'Ambassador'
 * Winning a challenge does not cause the player to reshuffle their card back into the deck
-* There is no implementation for a GUI yet
+* ~~There is no implementation for a GUI yet~~ (Added a web-based UI overlay!)
 * RL agents are only trained to be the first player, need to fix cases when they aren't first
