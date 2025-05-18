@@ -35,8 +35,7 @@
 }
 
 body {
-    background: var(--bg) url('/images/board_texture.png') repeat;
-    background-size: 256px 256px;
+    background: var(--bg);
     color: var(--text);
     font-family: var(--body-font);
     line-height: 1.5;
@@ -617,4 +616,91 @@ button:focus, a:focus, input:focus, select:focus {
         flex-direction: column;
         align-items: flex-start;
     }
+}
+
+/* Simulation Styles */
+.simulation-form {
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.simulation-input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-edge);
+    background-color: rgba(0, 0, 0, 0.2);
+    color: var(--text);
+    font-family: var(--body-font);
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(to right, var(--gold), #e1bf66);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--text-muted);
+}
+
+.simulation-stats {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.stats-table th, .stats-table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stats-table th {
+    color: var(--gold);
+    font-weight: 600;
+}
+
+.stats-table tr:last-child td {
+    border-bottom: none;
+}
+
+.win-bar {
+    height: 8px;
+    background-color: var(--gold);
+    margin-top: 5px;
+    border-radius: 4px;
+}
+
+.simulation-progress-container {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--panel-edge);
 } 

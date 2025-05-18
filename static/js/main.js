@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const newGameBtn = document.getElementById('new-game-btn');
+    const simulateGamesBtn = document.getElementById('simulate-games-btn');
     const nextTurnBtn = document.getElementById('next-turn-btn');
     const playersContainer = document.getElementById('players-container');
     const gameLogContainer = document.getElementById('game-log');
@@ -8,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentPlayerName = document.getElementById('current-player-name');
     const setupModal = document.getElementById('setup-modal');
     const gameOverModal = document.getElementById('game-over-modal');
+    const simulationModal = document.getElementById('simulation-modal');
     const winnerName = document.getElementById('winner-name');
     const addPlayerBtn = document.getElementById('add-player-btn');
     const removePlayerBtn = document.getElementById('remove-player-btn');
@@ -18,6 +20,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const actionGuide = document.getElementById('action-guide');
     const modalCloseBtn = document.querySelector('.modal-close');
     const gameOverCloseBtn = document.querySelector('.game-over-close');
+    const simulationCloseBtn = document.querySelector('.simulation-close');
+    const simPlayerForms = document.getElementById('simulation-players');
+    const simAddPlayerBtn = document.getElementById('sim-add-player-btn');
+    const simRemovePlayerBtn = document.getElementById('sim-remove-player-btn');
+    const startSimulationBtn = document.getElementById('start-simulation-btn');
+    const stopSimulationBtn = document.getElementById('stop-simulation-btn');
+    const downloadLogsBtn = document.getElementById('download-logs-btn');
+    const simulationProgressBar = document.getElementById('simulation-progress-bar');
+    const simulationProgressText = document.getElementById('simulation-progress-text');
+    const simulationStats = document.getElementById('simulation-stats');
+    const simulationProgressContainer = document.querySelector('.simulation-progress-container');
+    const simulationForm = document.querySelector('.simulation-form');
+    const simulationCount = document.getElementById('simulation-count');
 
     // Game state
     let gameState = null;
@@ -31,11 +46,16 @@ document.addEventListener('DOMContentLoaded', () => {
         'INCOME': 'Income Focused'
     };
 
+    // Simulation state
+    let simulationActive = false;
+    let simulationProgressInterval = null;
+
     // Initialize game
     showSetupModal();
 
     // Event Listeners
     newGameBtn.addEventListener('click', showSetupModal);
+    simulateGamesBtn.addEventListener('click', showSimulationModal);
     nextTurnBtn.addEventListener('click', handleNextTurn);
     addPlayerBtn.addEventListener('click', addPlayerForm);
     removePlayerBtn.addEventListener('click', removePlayerForm);
@@ -44,6 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleGuideBtn.addEventListener('click', toggleActionGuide);
     modalCloseBtn.addEventListener('click', closeSetupModal);
     gameOverCloseBtn.addEventListener('click', closeGameOverModal);
+    simulationCloseBtn.addEventListener('click', closeSimulationModal);
+    simAddPlayerBtn.addEventListener('click', addSimPlayerForm);
+    simRemovePlayerBtn.addEventListener('click', removeSimPlayerForm);
+    startSimulationBtn.addEventListener('click', startSimulation);
+    stopSimulationBtn.addEventListener('click', stopSimulation);
+    downloadLogsBtn.addEventListener('click', downloadSimulationLogs);
 
     function toggleActionGuide() {
         actionGuide.classList.toggle('show');
@@ -51,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showSetupModal() {
         gameOverModal.classList.remove('show');
+        simulationModal.classList.remove('show');
         setupModal.classList.add('show');
         // Reset player forms to default state with 2 players
         playerForms.innerHTML = '';
@@ -63,6 +90,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeGameOverModal() {
         gameOverModal.classList.remove('show');
+    }
+
+    function showSimulationModal() {
+        setupModal.classList.remove('show');
+        gameOverModal.classList.remove('show');
+        simulationModal.classList.add('show');
+        
+        // Reset simulation form
+        resetSimulationForm();
+    }
+
+    function closeSimulationModal() {
+        simulationModal.classList.remove('show');
+        
+        // If a simulation is active, stop it
+        if (simulationActive) {
+            stopSimulation();
+        }
+    }
+
+    function resetSimulationForm() {
+        // Reset simulation state
+        simulationCount.value = 100;
+        simPlayerForms.innerHTML = '';
+        simulationStats.innerHTML = '';
+        simulationProgressBar.style.width = '0%';
+        simulationProgressText.textContent = '0%';
+        
+        // Hide progress container and buttons
+        simulationProgressContainer.style.display = 'none';
+        simulationForm.style.display = 'block';
+        startSimulationBtn.style.display = 'block';
+        stopSimulationBtn.style.display = 'none';
+        downloadLogsBtn.style.display = 'none';
+        
+        // Add default player forms
+        addDefaultSimPlayerForms();
     }
 
     function addDefaultPlayerForms() {
@@ -83,6 +147,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 </select>
             `;
             playerForms.appendChild(playerForm);
+        }
+    }
+
+    function addDefaultSimPlayerForms() {
+        for (let i = 0; i < 2; i++) {
+            const playerIndex = i + 1;
+            const playerForm = document.createElement('div');
+            playerForm.className = 'player-form';
+            const playerId = `sim-player${playerIndex}`;
+            
+            playerForm.innerHTML = `
+                <label for="${playerId}-name">Player ${playerIndex}:</label>
+                <input type="text" id="${playerId}-name" class="player-name" value="Player ${playerIndex}">
+                <select id="${playerId}-type" class="player-type" aria-label="Select player ${playerIndex} type">
+                    <option value="RANDOM">Random</option>
+                    <option value="TRUTH">Truth Teller</option>
+                    <option value="GREEDY">Greedy</option>
+                    <option value="INCOME">Income</option>
+                </select>
+            `;
+            simPlayerForms.appendChild(playerForm);
         }
     }
 
@@ -111,12 +196,45 @@ document.addEventListener('DOMContentLoaded', () => {
         playerForms.appendChild(playerForm);
     }
 
+    function addSimPlayerForm() {
+        const playerCount = simPlayerForms.children.length;
+        if (playerCount >= 6) {
+            alert('Maximum 6 players allowed');
+            return;
+        }
+
+        const playerIndex = playerCount + 1;
+        const playerId = `sim-player${playerIndex}`;
+        const playerForm = document.createElement('div');
+        playerForm.className = 'player-form';
+        
+        playerForm.innerHTML = `
+            <label for="${playerId}-name">Player ${playerIndex}:</label>
+            <input type="text" id="${playerId}-name" class="player-name" value="Player ${playerIndex}">
+            <select id="${playerId}-type" class="player-type" aria-label="Select player ${playerIndex} type">
+                <option value="RANDOM">Random</option>
+                <option value="TRUTH">Truth Teller</option>
+                <option value="GREEDY">Greedy</option>
+                <option value="INCOME">Income</option>
+            </select>
+        `;
+        simPlayerForms.appendChild(playerForm);
+    }
+
     function removePlayerForm() {
         if (playerForms.children.length <= 2) {
             alert('Minimum 2 players required');
             return;
         }
         playerForms.removeChild(playerForms.lastChild);
+    }
+
+    function removeSimPlayerForm() {
+        if (simPlayerForms.children.length <= 2) {
+            alert('Minimum 2 players required');
+            return;
+        }
+        simPlayerForms.removeChild(simPlayerForms.lastChild);
     }
 
     function startNewGame() {
@@ -179,6 +297,172 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error starting game:', error);
             alert('Error starting game. Check console for details.');
         });
+    }
+
+    function startSimulation() {
+        const numGames = parseInt(simulationCount.value);
+        if (isNaN(numGames) || numGames < 1) {
+            alert('Please enter a valid number of games');
+            return;
+        }
+        
+        const players = [];
+        const forms = simPlayerForms.children;
+        
+        // Collect player data from forms
+        for (let i = 0; i < forms.length; i++) {
+            const nameInput = forms[i].querySelector('.player-name');
+            const typeSelect = forms[i].querySelector('.player-type');
+            
+            players.push({
+                name: nameInput.value.trim() || `Player ${i+1}`,
+                type: typeSelect.value
+            });
+        }
+        
+        // Hide form and show progress
+        simulationForm.style.display = 'none';
+        simulationProgressContainer.style.display = 'block';
+        startSimulationBtn.style.display = 'none';
+        stopSimulationBtn.style.display = 'block';
+        downloadLogsBtn.style.display = 'none';
+        
+        // Reset progress UI
+        simulationProgressBar.style.width = '0%';
+        simulationProgressText.textContent = '0%';
+        simulationStats.innerHTML = '';
+        
+        // Start simulation
+        fetch('/api/start_simulation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                num_games: numGames,
+                players: players
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                simulationActive = true;
+                
+                // Start polling for progress
+                simulationProgressInterval = setInterval(checkSimulationProgress, 500);
+            } else {
+                alert('Failed to start simulation: ' + data.message);
+                resetSimulationForm();
+            }
+        })
+        .catch(error => {
+            console.error('Error starting simulation:', error);
+            alert('Error starting simulation. Check console for details.');
+            resetSimulationForm();
+        });
+    }
+
+    function stopSimulation() {
+        fetch('/api/stop_simulation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                simulationActive = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error stopping simulation:', error);
+        });
+    }
+
+    function checkSimulationProgress() {
+        fetch('/api/simulation_progress')
+            .then(response => response.json())
+            .then(data => {
+                const progress = data.progress || 0;
+                
+                // Update UI
+                simulationProgressBar.style.width = `${progress}%`;
+                simulationProgressText.textContent = `${progress}%`;
+                
+                if (data.status === 'completed') {
+                    clearInterval(simulationProgressInterval);
+                    simulationActive = false;
+                    
+                    // Update stats
+                    updateSimulationStats(data);
+                    
+                    // Show download button
+                    stopSimulationBtn.style.display = 'none';
+                    downloadLogsBtn.style.display = 'block';
+                }
+                else if (data.status === 'not_started') {
+                    clearInterval(simulationProgressInterval);
+                    simulationActive = false;
+                    resetSimulationForm();
+                }
+            })
+            .catch(error => {
+                console.error('Error checking simulation progress:', error);
+            });
+    }
+
+    function updateSimulationStats(data) {
+        const totalGames = data.total_games;
+        const winners = data.winners;
+        const winPercentages = data.win_percentages;
+        
+        // Create stats table
+        let statsHtml = `
+            <h3>Simulation Results (${totalGames} games)</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Wins</th>
+                        <th>Win %</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        // Sort players by win count (descending)
+        const sortedPlayers = Object.keys(winners).sort((a, b) => winners[b] - winners[a]);
+        
+        // Add rows for each player
+        sortedPlayers.forEach(player => {
+            const wins = winners[player];
+            const percentage = winPercentages[player].toFixed(1);
+            const barWidth = percentage + '%';
+            
+            statsHtml += `
+                <tr>
+                    <td>${player}</td>
+                    <td>${wins}</td>
+                    <td>${percentage}%</td>
+                    <td>
+                        <div class="win-bar" style="width: ${barWidth}"></div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        statsHtml += `
+                </tbody>
+            </table>
+        `;
+        
+        simulationStats.innerHTML = statsHtml;
+    }
+
+    function downloadSimulationLogs() {
+        window.location.href = '/api/download_simulation_logs';
     }
 
     function handleNextTurn() {

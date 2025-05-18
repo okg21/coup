@@ -19,6 +19,7 @@
             </div>
             <div class="controls">
                 <button id="new-game-btn" class="btn" aria-label="Start a new game">New Game</button>
+                <button id="simulate-games-btn" class="btn" aria-label="Simulate multiple games">Simulate Games</button>
                 <button id="next-turn-btn" class="btn" disabled aria-label="Advance to next turn">Next Turn</button>
                 <button id="toggle-guide-btn" class="btn" aria-label="Toggle action guide visibility">Show/Hide Action Guide</button>
             </div>
@@ -150,6 +151,72 @@
                 <p>The winner is: <span id="winner-name"></span></p>
                 <div class="modal-footer">
                     <button id="new-game-after-win-btn" class="btn btn--primary" role="button" tabindex="0">New Game</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Simulation Setup Modal -->
+        <div id="simulation-modal" class="modal" aria-modal="true" role="dialog" aria-labelledby="simulation-title">
+            <div class="modal-content panel">
+                <div class="modal-header">
+                    <img src="/images/logo.png" alt="Coup Game Logo" class="modal-logo">
+                    <h2 id="simulation-title">Simulation Setup</h2>
+                    <button class="modal-close simulation-close btn" aria-label="Close modal">&times;</button>
+                </div>
+                <div class="simulation-setup">
+                    <div class="simulation-form">
+                        <div class="form-group">
+                            <label for="simulation-count">Number of Games:</label>
+                            <input type="number" id="simulation-count" min="1" max="10000" value="100" class="simulation-input">
+                        </div>
+                        
+                        <h3>Players</h3>
+                        <div id="simulation-players">
+                            <div class="player-form">
+                                <label for="sim-player1-name">Player 1:</label>
+                                <input type="text" id="sim-player1-name" class="player-name" value="Player 1">
+                                <select id="sim-player1-type" class="player-type">
+                                    <option value="RANDOM">Random</option>
+                                    <option value="TRUTH">Truth Teller</option>
+                                    <option value="GREEDY">Greedy</option>
+                                    <option value="INCOME">Income</option>
+                                </select>
+                            </div>
+                            <div class="player-form">
+                                <label for="sim-player2-name">Player 2:</label>
+                                <input type="text" id="sim-player2-name" class="player-name" value="Player 2">
+                                <select id="sim-player2-type" class="player-type">
+                                    <option value="RANDOM">Random</option>
+                                    <option value="TRUTH">Truth Teller</option>
+                                    <option value="GREEDY">Greedy</option>
+                                    <option value="INCOME">Income</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="player-controls">
+                            <button id="sim-add-player-btn" class="btn" role="button" tabindex="0">Add Player</button>
+                            <button id="sim-remove-player-btn" class="btn" role="button" tabindex="0">Remove Player</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="simulation-progress-container" style="display: none;">
+                    <h3>Simulation Progress</h3>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="simulation-progress-bar"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="simulation-progress-text">0%</span> complete
+                    </div>
+                    <div class="simulation-stats" id="simulation-stats">
+                        <!-- Stats will be displayed here -->
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button id="start-simulation-btn" class="btn btn--primary" role="button" tabindex="0">Start Simulation</button>
+                    <button id="stop-simulation-btn" class="btn" role="button" tabindex="0" style="display: none;">Stop Simulation</button>
+                    <button id="download-logs-btn" class="btn" role="button" tabindex="0" style="display: none;">Download Logs</button>
                 </div>
             </div>
         </div>
